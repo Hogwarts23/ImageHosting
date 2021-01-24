@@ -1,8 +1,8 @@
 #!/bin/sh
 
-APIKEY=""
-DOMAIN=""
-HOSTLIST=("" "www" "hello")
+APIKEY="1c1a54e129b5a7d5e897"
+DOMAIN="mdaicloud.com"
+HOSTLIST=("" "www" "nas")
 IP=${1}
 
 for HOST in "${HOSTLIST[@]}"
