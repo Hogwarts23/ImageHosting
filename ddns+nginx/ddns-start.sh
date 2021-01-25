@@ -1,11 +1,10 @@
 #!/opt/bin/bash
 
-API_KEY="f5502949e2f29ee7df9143"
-MyDomain="mdaicloud.com"
+API_KEY=""
+MyDomain="example.com"
 HostA=""
 HostB="www"
-HostC="nas"
-
+# HostC=""
 renew_hostip()
 {
         local   response_xml rspinfo
@@ -13,8 +12,9 @@ renew_hostip()
         local   wan0_ip get_ip
 
         #Taobao API get public ip / Response Format:ipCallback({ip:"1.1.1.1"})
-        get_ip=$(curl -s "http://www.taobao.com/help/getip.php")
-        wan0_ip=$(echo ${get_ip} | sed 's/^.*ip\:\"\([0-9\.]*\).*$/\1/')
+        # get_ip=$(curl -s "http://www.taobao.com/help/getip.php")
+        # wan0_ip=$(echo ${get_ip} | sed 's/^.*ip\:\"\([0-9\.]*\).*$/\1/')
+        wan0_ip="$(curl -fs4 https://myip.dnsomatic.com/)"
 	#Asus Router Merlin FW Get Wan IP
 #       wan0_ip=$(nvram get wan0_ipaddr)
 
@@ -73,12 +73,12 @@ renew_hostip	${HostA}
 echo "-----------------------------------------"
 renew_hostip	${HostB}
 echo "*****************************************"
-renew_hostip	${HostC}
-echo "*****************************************"
+# renew_hostip	${HostC}
+# echo "*****************************************"
 exit 0
 
-# APIKEY="1c1a54e129b5a7d5e897"
-# DOMAIN="mdaicloud.com"
+# APIKEY=""
+# DOMAIN="example.com"
 # # HOSTLIST=("" "www" "hello")
 # HOST="www"
 # IP=${1}
