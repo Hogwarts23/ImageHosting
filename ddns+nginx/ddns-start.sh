@@ -61,8 +61,7 @@ renew_hostip()
         fi
 
         echo "Update Host IP!"
-        rspinfo=$(curl -s "https://www.namesilo.com/api/dnsUpdateRecord?version=1&type=xml&key=${API_KEY}&domain=${MyDomain}&rrid=\
-${record_id}&rrhost=$1&rrvalue=${wan0_ip}&rrttl=3602")
+        rspinfo=$(curl -s "https://www.namesilo.com/api/dnsUpdateRecord?version=1&type=xml&key=${API_KEY}&domain=${MyDomain}&rrid=${record_id}&rrhost=$1&rrvalue=${wan0_ip}&rrttl=3602")
 #       echo ${rspinfo}
 
         return 0
