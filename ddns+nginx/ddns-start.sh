@@ -1,129 +1,107 @@
 #!/opt/bin/bash
 
-# ## ns_ddns_1.0.1
-# ## this script will check if OpenVPN is running and update the host's ip address with Namesilo if it is not
+API_KEY="1c1a54e129b5a7d5e897"
+MyDomain="mdaicloud.com"
+HostA=""
+HostB="www"
+HostC="nas"
 
-# ##List of domain names (separated with spaces).
-# ##Subdomains are also supported, e.g., host.example.com, sub.host.example.com
-# DOMAINS=("mdaicloud.com" "nas.mdaicloud.com" "www.mdaicloud.com")
-# ##APIKEY obtained from Namesilo:
+renew_hostip()
+{
+        local   response_xml rspinfo
+        local   record_id host_ip
+        local   wan0_ip get_ip
+
+        #Taobao API get public ip / Response Format:ipCallback({ip:"1.1.1.1"})
+        get_ip=$(curl -s "http://www.taobao.com/help/getip.php")
+        wan0_ip=$(echo ${get_ip} | sed 's/^.*ip\:\"\([0-9\.]*\).*$/\1/')
+	#Asus Router Merlin FW Get Wan IP
+#       wan0_ip=$(nvram get wan0_ipaddr)
+
+        #Get dnsListRecords
+        response_xml=$(curl -s "https://www.namesilo.com/api/dnsListRecords?version=1&type=xml&key=${API_KEY}&domain=${MyDomain}")
+
+        echo "Get Record_ID!"
+        if [ "$1"x == ""x ]; then
+                record_id=$(echo ${response_xml} | sed "s/^.*<record_id>\([0-9a-z]*\)<\/record_id><type>A<\/type><host>${MyDomain}<\/host>.*$/\1/")
+                if [[ ${#record_id} -gt 30 ]] && [[ ${#record_id} -lt 34 ]]; then
+                        echo "DNS Record ID of ${MyDomain} Is: ${record_id}"
+                else 
+                        echo "$1.${MyDomain} Record Is No Exist!"
+                fi
+        else
+                record_id=$(echo ${response_xml} | sed "s/^.*<record_id>\([0-9a-z]*\)<\/record_id><type>A<\/type><host>$1\.${MyDomain}<\/host>.*$/\1/")
+                if [[ ${#record_id} -gt 30 ]] && [[ ${#record_id} -lt 34 ]]; then
+                        echo "DNS Record ID of $1.${MyDomain} Is: ${record_id}"
+                else
+                        echo "$1.${MyDomain} Record Is No Exist!"
+                fi
+        fi
+
+        #See If Host Record ID No Exist? Create New One!
+        if [[ ${#record_id} -gt 34 ]] || [[ ${#record_id} -lt 30 ]]; then
+                echo "Create A New Record!"
+                rspinfo=$(curl -s "https://www.namesilo.com/api/dnsAddRecord?version=1&type=xml&key=${API_KEY}&domain=${MyDomain}&rrtype=A&rrhost=$1&rrvalue=${wan0_ip}&rrttl=3602")
+                return 0;
+        fi
+
+        echo "Get Host's IP"
+        if [ "$1"x == ""x ]; then
+                host_ip=$(echo ${response_xml} | sed "s/^.*<host>${MyDomain}<\/host><value>\([0-9\.]*\)<\/value>.*$/\1/")
+                echo "Host's IP of ${MyDomain} Is: ${host_ip}"
+        else 
+                host_ip=$(echo ${response_xml} | sed "s/^.*<host>$1\.${MyDomain}<\/host><value>\([0-9\.]*\)<\/value>.*$/\1/")
+                echo "Host's IP of $1.${MyDomain} Is: ${host_ip}"
+        fi
+
+        #See If Wan IP Was Changed ?
+        if [ "${wan0_ip}" == "${host_ip}" ]; then
+                echo "IP is no change, don't need updata!"
+                return 0
+        fi
+
+        echo "Update Host IP!"
+        rspinfo=$(curl -s "https://www.namesilo.com/api/dnsUpdateRecord?version=1&type=xml&key=${API_KEY}&domain=${MyDomain}&rrid=\
+${record_id}&rrhost=$1&rrvalue=${wan0_ip}&rrttl=3602")
+#       echo ${rspinfo}
+
+        return 0
+}
+
+date +%D%t%H:%M:%S
+echo "*****************************************"
+renew_hostip	${HostA}
+echo "-----------------------------------------"
+renew_hostip	${HostB}
+echo "*****************************************"
+renew_hostip	${HostC}
+echo "*****************************************"
+exit 0
+
 # APIKEY="1c1a54e129b5a7d5e897"
+# DOMAIN="mdaicloud.com"
+# # HOSTLIST=("" "www" "hello")
+# HOST="www"
+# IP=${1}
 
-# ## Do not edit lines below ##
-
-# ##Saved history pubic IP from last check
-# IP_FILE="/var/tmp/MyPubIP"
-
-# ##Time IP last updated or 'No IP change' log message output
-# IP_TIME="/var/tmp/MyIPTime"
-
-# ##Temporary path for parsing DNS records from Namesilo
-# DOMAIN_XML_PATH="/var/tmp/"
-
-# ##How often to output 'No IP change' log messages
-# NO_IP_CHANGE_TIME=86400
-
-# ##Response from Namesilo
-# RESPONSE="/tmp/namesilo_response.xml"
-
-# ## Check if OpenVPN is running
-# if [ "$(pidof openvpn)" ]; then
-#   logger -t IP.Check -- Update aborted. VPN connection detected.
+# # for HOST in "${HOSTLIST[@]}"
+# # do
+# if [ -z "$HOST" ]; then
+#   FULLDOMAIN=$DOMAIN
 # else
-
-#   ##Choose randomly which OpenDNS resolver to use
-#   RESOLVER=resolver$(echo $((($RANDOM%4)+1))).opendns.com
-#   ##Get the current public IP using DNS
-#   CUR_IP="$(dig +short myip.opendns.com @$RESOLVER)"
-#   ODRC=$?
-
-#   ## Try google dns if opendns failed
-#   if [ $ODRC -ne 0 ]; then
-#      logger -t IP.Check -- IP Lookup at $RESOLVER failed!
-#      sleep 5
-#   ##Choose randomly which Google resolver to use
-#      RESOLVER=ns$(echo $((($RANDOM%4)+1))).google.com
-#   ##Get the current public IP 
-#      IPQUOTED=$(dig TXT +short o-o.myaddr.l.google.com @$RESOLVER)
-#      GORC=$?
-#   ## Exit if google failed
-#      if [ $GORC -ne 0 ]; then
-#        logger -t IP.Check -- IP Lookup at $RESOLVER failed!
-#        exit 1
-#      fi
-#      CUR_IP=$(echo $IPQUOTED | awk -F'"' '{ print $2}')
-#   fi
-
-#   ##Check file for previous IP address
-#   if [ -f $IP_FILE ]; then
-#     KNOWN_IP=$(cat $IP_FILE)
-#   else
-#     KNOWN_IP=
-#   fi
-
-
-#   ##See if the IP has changed
-#   if [ "$CUR_IP" != "$KNOWN_IP" ]; then
-#     echo $CUR_IP > $IP_FILE
-#     logger -t IP.Check -- Public IP changed to $CUR_IP from $RESOLVER
-
-#     ##Update DNS record in Namesilo:
-#     for FQDN in "${DOMAINS[@]}"
-#     do
-#       DOMAIN=$(echo $FQDN | grep -oP '[^.]+\.[^.]+$')
-#       HOST=$(echo $FQDN | sed 's/\.\?[^.]\+\.[^.]\+$//')
-#       HOST_WITH_DOT=$(echo $HOST | awk '{if($0!="") print $HOST"."; else print ""}')
-#       curl -s "https://www.namesilo.com/api/dnsListRecords?version=1&type=xml&key=$APIKEY&domain=$DOMAIN" > $DOMAIN_XML_PATH$DOMAIN.xml
-#       RECORD_ID=`xmllint --xpath "//namesilo/reply/resource_record/record_id[../host/text() = '$HOST_WITH_DOT$DOMAIN' ]" $DOMAIN_XML_PATH$DOMAIN.xml | grep -oP '(?<=<record_id>).*?(?=</record_id>)'`
-#       curl -s "https://www.namesilo.com/api/dnsUpdateRecord?version=1&type=xml&key=$APIKEY&domain=$DOMAIN&rrid=$RECORD_ID&rrhost=$HOST&rrvalue=$CUR_IP&rrttl=3600" > $RESPONSE
-#       RESPONSE_CODE=`xmllint --xpath "//namesilo/reply/code/text()"  $RESPONSE`
-#          case $RESPONSE_CODE in
-#          300)
-#            date "+%s" > $IP_TIME
-#            logger -t IP.Check -- Update success. $FQDN IP address is now $CUR_IP;;
-#          280)
-#            logger -t IP.Check -- Update aborted. $FQDN duplicate record found.;;
-#          *)
-#            ## put the old IP back, so that the update will be tried next time
-#            echo $KNOWN_IP > $IP_FILE
-#            logger -t IP.Check -- Update failure. DDNS response code was $RESPONSE_CODE!;;
-#       esac
-#     done
-
-#   else
-#     ## Only log all these events NO_IP_CHANGE_TIME after last update
-#     [ $(date "+%s") -gt $((($(cat $IP_TIME)+$NO_IP_CHANGE_TIME))) ] &&
-#       logger -t IP.Check -- Update unneded. $FQDN IP address unchanged from $RESOLVER &&
-#       date "+%s" > $IP_TIME
-#   fi
-
+#   FULLDOMAIN=$HOST.$DOMAIN
 # fi
-# exit 0
-
-APIKEY="1c1a54e129b5a7d5e897"
-DOMAIN="mdaicloud.com"
-# HOSTLIST=("" "www" "hello")
-HOST="www"
-IP=${1}
-
-# for HOST in "${HOSTLIST[@]}"
-# do
-if [ -z "$HOST" ]; then
-  FULLDOMAIN=$DOMAIN
-else
-  FULLDOMAIN=$HOST.$DOMAIN
-fi
-	# Fetch DNS record ID
-RESPONSE="$(curl -s "https://www.namesilo.com/api/dnsListRecords?version=1&type=xml&key=$APIKEY&domain=$DOMAIN")"
-RECORD_ID="$(echo $RESPONSE | sed -n "s/^.*<record_id>\(.*\)<\/record_id>.*<type>A<\/type><host>$FULLDOMAIN<\/host>.*$/\1/p")"
-	# Update DNS record in Namesilo
-RESPONSE="$(curl -s "https://www.namesilo.com/api/dnsUpdateRecord?version=1&type=xml&key=$APIKEY&domain=$DOMAIN&rrid=$RECORD_ID&rrhost=$HOST&rrvalue=$IP&rrttl=7207")"
-	# Check whether the update was successful
-echo $RESPONSE | grep -E "<code>(280|300)</code>" &>/dev/null
-if [ $? -eq 0 ]; then
-  /sbin/ddns_custom_updated 1
-else
-  /sbin/ddns_custom_updated 0
-fi
-# done
+# 	# Fetch DNS record ID
+# RESPONSE="$(curl -s "https://www.namesilo.com/api/dnsListRecords?version=1&type=xml&key=$APIKEY&domain=$DOMAIN")"
+# RECORD_ID="$(echo $RESPONSE | sed -n "s/^.*<record_id>\(.*\)<\/record_id>.*<type>A<\/type><host>$FULLDOMAIN<\/host>.*$/\1/p")"
+# 	# Update DNS record in Namesilo
+# RESPONSE="$(curl -s "https://www.namesilo.com/api/dnsUpdateRecord?version=1&type=xml&key=$APIKEY&domain=$DOMAIN&rrid=$RECORD_ID&rrhost=$HOST&rrvalue=$IP&rrttl=7207")"
+# 	# Check whether the update was successful
+# echo $RESPONSE | grep -E "<code>(280|300)</code>" &>/dev/null
+# if [ $? -eq 0 ]; then
+#   /sbin/ddns_custom_updated 1
+# else
+#   /sbin/ddns_custom_updated 0
+# fi
+# # done
 
