@@ -1,6 +1,6 @@
 #!/opt/bin/bash
 
-API_KEY="1c1a54e129b5a7d5e897"
+API_KEY="f5502949e2f29ee7df9143"
 MyDomain="mdaicloud.com"
 HostA=""
 HostB="www"
