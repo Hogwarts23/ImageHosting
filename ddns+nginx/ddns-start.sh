@@ -27,14 +27,14 @@ renew_hostip()
                 if [[ ${#record_id} -gt 30 ]] && [[ ${#record_id} -lt 34 ]]; then
                         echo "DNS Record ID of ${MyDomain} Is: ${record_id}"
                 else 
-                        echo "$1.${MyDomain} Record Is No Exist!"
+                        echo "$1.${MyDomain} Record Does No Exist!"
                 fi
         else
                 record_id=$(echo ${response_xml} | sed "s/^.*<record_id>\([0-9a-z]*\)<\/record_id><type>A<\/type><host>$1\.${MyDomain}<\/host>.*$/\1/")
                 if [[ ${#record_id} -gt 30 ]] && [[ ${#record_id} -lt 34 ]]; then
                         echo "DNS Record ID of $1.${MyDomain} Is: ${record_id}"
                 else
-                        echo "$1.${MyDomain} Record Is No Exist!"
+                        echo "$1.${MyDomain} Record Does No Exist!"
                 fi
         fi
 
@@ -54,9 +54,9 @@ renew_hostip()
                 echo "Host's IP of $1.${MyDomain} Is: ${host_ip}"
         fi
 
-        #See If Wan IP Was Changed ?
+        #See If Wan IP Is Changed ?
         if [ "${wan0_ip}" == "${host_ip}" ]; then
-                echo "IP is no change, don't need updata!"
+                echo "IP hasn't changed, don't need updata!"
                 return 0
         fi
 
